@@ -56,23 +56,25 @@ def fill_in_tables(db_session, info):
         print(f"Что-то пошла не так при заполнении таблиц. {ex_fill}")
 
 
-def get_info_about_publisher(db_sess, name_publisher):
-    if "'" in name_publisher:
-        name_publisher = name_publisher.replace("'", "\u2019")
-    if name_publisher not in ("O’Reilly", "Pearson", "Microsoft Press", "No starch press"):
-        print("Искомого издательства в таблице нет!!!")
+def get_shops(db_sess, name_publisher):
     try:
         result = db_sess.query(Publisher, Book, Stock, Sale, Shop). \
             join(Book, Publisher.publisher_id == Book.publisher_id). \
             join(Stock, Book.book_id == Stock.book_id). \
             join(Sale, Sale.stock_id == Stock.stock_id). \
-            join(Shop, Stock.shop_id == Shop.shop_id).filter(Publisher.name_publisher == name_publisher).all()
-        print("название книг".ljust(45), "название магазины, в котором была куплена книга".ljust(50),
-              "стоимость покупки".ljust(20), "дата покупки")
+            join(Shop, Stock.shop_id == Shop.shop_id)
+        if name_publisher.isdigit():
+            result = result.filter(Publisher.publisher_id == int(name_publisher)).all()
+        else:
+            if "'" in name_publisher:
+                name_publisher = name_publisher.replace("'", "\u2019")
+            result = result.filter(Publisher.name_publisher == name_publisher).all()
+        name_book, name_shop, price, date = ("название книг", "название магазины, в котором была куплена книга",
+                                             "стоимость покупки", "дата покупки")
+        print(f"{name_book:<40}|{name_shop:<10}|{price:<8}|{date}")
         for publisher, book, stock, sale, shop in result:
-            print(book.title.ljust(45), shop.name_shop.ljust(50),
-                  str(sale.price * sale.count).ljust(20), sale.date_sale.strftime("%d-%m-%Y"))
-
+            print(f"{book.title:<40}|{shop.name_shop:<47}"
+                  f"|{str(sale.price * sale.count):<17}|{sale.date_sale.strftime('%d-%m-%Y')}")
     except Exception as ex_query:
         print(f"Ошибка при извлечении данных из таблиц. {ex_query}")
 
@@ -93,7 +95,7 @@ if __name__ == "__main__":
                           port=port_postgresql,
                           db_name=name_db)
     fill_in_tables(sess, data_from_json)
-    publisher_name = input("Введите название издательства: ")
-    get_info_about_publisher(sess, publisher_name)
+    publisher_name = input("Введите название или id издательства: ")
+    get_shops(sess, publisher_name)
     if sess:
         sess.close()
